@@ -31,7 +31,17 @@ const queryEmbedding = embeddingData[0];
     // 2️⃣ Get top chunks from Supabase
     const topChunks = await getTopChunks(queryEmbedding, 10);
     const contextChunks = topChunks.map(formatChunkForContext);
+    // 2️.5 NEW: Load previous conversation history
+    const { data: history } = await supabase
+      .from("chat_history")
+      .select("user_prompt, ai_response")
+      .order("created_at", { ascending: false })
+      .limit(6);
 
+    const historyText = history
+      ?.reverse()
+      .map(h => `User: ${h.user_prompt}\nAI: ${h.ai_response}`)
+      .join("\n\n") || "";
     // 3️⃣ Generate LLM response
     const systemPrompt = "You are an expert JAMB tutor and strategist, giving concise, effective answers.";
     const llmResponse = await getLLMResponse({ systemPrompt, userPrompt, contextChunks });
