@@ -1,4 +1,3 @@
-
 import { supabase } from "../config/supabaseClient.js";
 import { getTopChunks } from "../services/semanticSearchService.js";
 import { getLLMResponse } from "../services/llmService.js";
@@ -10,23 +9,27 @@ import { SYSTEM_PROMPT } from "../config/systemPrompt.js";
  */
 export async function handleChat(req, res) {
   try {
-    const { userPrompt, keywords, userId = 1 } = req.body; // Default userId for personal use
+    const { userPrompt, keywords, userId = 1 } = req.body; // Default userId
 
-    // 1️⃣ Get embedding for keywords from Hugging Face
-    const embeddingRes = await fetch(
-      "https://api-inference.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2",
-      {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${process.env.HF_TOKEN}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ inputs: keywords })
-      }
-    );
+    // 1️⃣ Get embedding for keywords from Hugging Face Router
+    const embeddingRes = await fetch("https://router.huggingface.co/api/embed", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${process.env.HF_TOKEN}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "sentence-transformers/all-MiniLM-L6-v2",
+        inputs: [keywords]  // wrap string in array
+      })
+    });
 
     const embeddingData = await embeddingRes.json();
-    const queryEmbedding = embeddingData; // the entire array is your embedding
+    const queryEmbedding = embeddingData?.[0];
+
+    if (!Array.isArray(queryEmbedding)) {
+      throw new Error("Invalid embedding returned from Hugging Face");
+    }
 
     // 2️⃣ Get top chunks from Supabase semantic search
     const topChunks = await getTopChunks(queryEmbedding, 10);
