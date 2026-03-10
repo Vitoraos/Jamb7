@@ -11,14 +11,23 @@ export async function handleChat(req, res) {
     const { userPrompt, keywords, userId } = req.body;
 
     // 1️⃣ Embed keywords (example: call OpenAI embedding API)
-    const embeddingRes = await fetch(process.env.EMBEDDING_API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${process.env.EMBEDDING_API_KEY}` },
-      body: JSON.stringify({ input: keywords })
-    });
-    const embeddingData = await embeddingRes.json();
-    const queryEmbedding = embeddingData.data[0].embedding;
+    const embeddingRes = await fetch(
+  "https://api-inference.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2",
+  {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${process.env.HF_TOKEN}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      inputs: keywords
+    })
+  }
+);
 
+const embeddingData = await embeddingRes.json();
+const queryEmbedding = embeddingData[0];
+  
     // 2️⃣ Get top chunks from Supabase
     const topChunks = await getTopChunks(queryEmbedding, 10);
     const contextChunks = topChunks.map(formatChunkForContext);
