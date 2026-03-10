@@ -3,25 +3,45 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const LLM_API_URL = process.env.LLM_API_URL; // e.g., OpenAI or free LLM endpoint
-const LLM_API_KEY = process.env.LLM_API_KEY;
+const HF_API_URL = process.env.LLM_API_URL;    // Hugging Face endpoint
+const HF_API_KEY = process.env.LLM_API_KEY;
 
-export async function getLLMResponse({ systemPrompt, userPrompt, contextChunks }) {
-  const messages = [
-    { role: "system", content: systemPrompt },
-    { role: "user", content: userPrompt },
-    { role: "assistant", content: contextChunks.join("\n\n") }
-  ];
+export async function getHFResponse({ systemPrompt, userPrompt, contextChunks }) {
+  // Sort context chunks by similarity descending, if each chunk has a `similarity` field
+  const sortedChunks = contextChunks
+    .sort((a, b) => (b.similarity || 0) - (a.similarity || 0))
+    .map(c => c.chunk_text);
 
-  const response = await fetch(LLM_API_URL, {
+  // Concatenate everything into a single string
+  const prompt = `
+[System Prompt]
+${systemPrompt}
+
+[User Prompt]
+${userPrompt}
+
+[Context Chunks]
+${sortedChunks.join("\n\n")}
+`;
+
+  const response = await fetch(HF_API_URL, {
     method: "POST",
     headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${LLM_API_KEY}`
+      "Authorization": `Bearer ${HF_API_KEY}`,
+      "Content-Type": "application/json"
     },
-    body: JSON.stringify({ messages })
+    body: JSON.stringify({
+      inputs: prompt,
+      options: { wait_for_model: true },
+      parameters: {
+        max_new_tokens: 512,
+        temperature: 0.7
+      }
+    })
   });
 
   const data = await response.json();
-  return data.choices?.[0]?.message?.content || "";
+
+  // Hugging Face returns text as `generated_text` in an array
+  return data[0]?.generated_text || "";
 }
