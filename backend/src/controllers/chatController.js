@@ -11,26 +11,32 @@ export async function handleChat(req, res) {
   try {
     const { userPrompt, keywords, userId = 1 } = req.body; // Default userId
 
-    // 1️⃣ Get embedding for keywords from Hugging Face Router
-    const embeddingRes = await fetch("https://router.huggingface.co/api/embed", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${process.env.HF_TOKEN}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        model: "sentence-transformers/all-MiniLM-L6-v2",
-        inputs: [keywords]  // wrap string in array
-      })
-    });
+    /// 1️⃣ Get embedding for keywords from Hugging Face Router API
+const embeddingRes = await fetch(
+  "https://router.huggingface.co/v1/embeddings",
+  {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${process.env.HF_TOKEN}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      model: "sentence-transformers/all-MiniLM-L6-v2",
+      input: [keywords]   // wrap keywords in an array
+    })
+  }
+);
 
-    const embeddingData = await embeddingRes.json();
-    const queryEmbedding = embeddingData?.[0];
+// Parse response safely
+const embeddingData = await embeddingRes.json();
 
-    if (!Array.isArray(queryEmbedding)) {
-      throw new Error("Invalid embedding returned from Hugging Face");
-    }
+// Hugging Face Router returns embeddings like: { "data": [ { "embedding": [...] } ] }
+const queryEmbedding = embeddingData?.data?.[0]?.embedding;
 
+if (!queryEmbedding) {
+  console.error("Failed to get embedding from Hugging Face:", embeddingData);
+  return res.status(500).json({ error: "Embedding generation failed" });
+}
     // 2️⃣ Get top chunks from Supabase semantic search
     const topChunks = await getTopChunks(queryEmbedding, 10);
     const contextChunks = topChunks.map(formatChunkForContext);
