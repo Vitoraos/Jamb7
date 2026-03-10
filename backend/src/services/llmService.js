@@ -4,44 +4,54 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const HF_API_URL = process.env.LLM_API_URL;    // Hugging Face endpoint
-const HF_API_KEY = process.env.LLM_API_KEY;
+const HF_API_URL = "https://router.huggingface.co/v1/chat/completions";
+const HF_API_KEY = process.env.HF_TOKEN;
 
 /**
- * Generates a response from a Hugging Face LLM with chat history and context.
+ * Generates a response from Hugging Face router chat models
  * @param {Object} params
- * @param {string} params.systemPrompt - Instructions for the AI
- * @param {string} params.userPrompt - Current user question
- * @param {Array} params.contextChunks - Array of objects {chunk_text, similarity} from semantic search
- * @param {Array} params.chatHistory - Array of past chat messages [{user_prompt, ai_response}]
+ * @param {string} params.systemPrompt
+ * @param {string} params.userPrompt
+ * @param {Array} params.contextChunks
+ * @param {Array} params.chatHistory
  */
-export async function getLLMResponse({ systemPrompt, userPrompt, contextChunks = [], chatHistory = [] }) {
-  // 1️⃣ Sort context chunks by similarity descending
+
+export async function getLLMResponse({
+  systemPrompt,
+  userPrompt,
+  contextChunks = [],
+  chatHistory = []
+}) {
+
+  // 1️⃣ Sort semantic search chunks
   const sortedChunks = contextChunks
     .sort((a, b) => (b.similarity || 0) - (a.similarity || 0))
     .map(c => `[score:${c.similarity?.toFixed(2) || 0}] ${c.chunk_text}`);
 
-  // 2️⃣ Concatenate previous chat history
-  const historyText = chatHistory
-    .map(h => `User: ${h.user_prompt}\nAI: ${h.ai_response}`)
-    .join("\n\n");
+  // 2️⃣ Convert stored chat history → chat messages
+  const historyMessages = chatHistory.flatMap(h => [
+    { role: "user", content: h.user_prompt },
+    { role: "assistant", content: h.ai_response }
+  ]);
 
-  // 3️⃣ Build the prompt for Hugging Face
-  const prompt = `
-[System Prompt]
-${systemPrompt}
-
-[Conversation History]
-${historyText}
-
-[Context Chunks]
+  // 3️⃣ Construct user message including context
+  const userMessage = `
+Context Chunks:
 ${sortedChunks.join("\n\n")}
 
-[User Prompt]
+Question:
 ${userPrompt}
 `;
 
+  // 4️⃣ Assemble messages array
+  const messages = [
+    { role: "system", content: systemPrompt },
+    ...historyMessages,
+    { role: "user", content: userMessage }
+  ];
+
   try {
+
     const response = await fetch(HF_API_URL, {
       method: "POST",
       headers: {
@@ -49,22 +59,22 @@ ${userPrompt}
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        inputs: prompt,
-        options: { wait_for_model: true },
-        parameters: {
-          max_new_tokens: 512,
-          temperature: 0.7
-        }
+        model: "meta-llama/Llama-3.1-8B-Instruct",
+        messages: messages,
+        max_tokens: 350,
+        temperature: 0.4
       })
     });
 
     const data = await response.json();
 
-    // Hugging Face returns text in data[0].generated_text
-    return data[0]?.generated_text || "";
+    // Router response format
+    return data?.choices?.[0]?.message?.content || "";
 
   } catch (err) {
+
     console.error("Error calling Hugging Face LLM:", err);
-    return "Error generating response. Please try again.";
+    return "Error generating response.";
+
   }
 }
