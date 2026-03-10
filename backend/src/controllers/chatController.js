@@ -26,7 +26,7 @@ export async function handleChat(req, res) {
     );
 
     const embeddingData = await embeddingRes.json();
-    const queryEmbedding = Array.isArray(embeddingData[0]) ? embeddingData[0] : embeddingData[0].embedding;
+    const queryEmbedding = embeddingData; // the entire array is your embedding
 
     // 2️⃣ Get top chunks from Supabase semantic search
     const topChunks = await getTopChunks(queryEmbedding, 10);
