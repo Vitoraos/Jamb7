@@ -15,7 +15,7 @@ const HF_API_KEY = process.env.LLM_API_KEY;
  * @param {Array} params.contextChunks - Array of objects {chunk_text, similarity} from semantic search
  * @param {Array} params.chatHistory - Array of past chat messages [{user_prompt, ai_response}]
  */
-export async function getHFResponse({ systemPrompt, userPrompt, contextChunks = [], chatHistory = [] }) {
+export async function getLLMResponse({ systemPrompt, userPrompt, contextChunks = [], chatHistory = [] }) {
   // 1️⃣ Sort context chunks by similarity descending
   const sortedChunks = contextChunks
     .sort((a, b) => (b.similarity || 0) - (a.similarity || 0))
