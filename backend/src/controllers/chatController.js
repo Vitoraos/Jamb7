@@ -12,7 +12,7 @@ export async function handleChat(req, res) {
     const { userPrompt, keywords, userId = 1 } = req.body; // Default userId
 
     const embeddingRes = await fetch(
-  `https://api-inference.huggingface.co/v2/embeddings/sentence-transformers/all-MiniLM-L6-v2`,
+  `https://router.huggingface.co/v2/embeddings/sentence-transformers/all-MiniLM-L6-v2`,
   {
     method: "POST",
     headers: {
