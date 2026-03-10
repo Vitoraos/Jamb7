@@ -1,7 +1,7 @@
 
 import { supabase } from "../config/supabaseClient.js";
 import { getTopChunks } from "../services/semanticSearchService.js";
-import { getHFResponse } from "../services/llmService.js";
+import { getLLMResponse } from "../services/llmService.js";
 import { formatChunkForContext } from "../utils/formatters.js";
 import { SYSTEM_PROMPT } from "../config/systemPrompt.js";
 
