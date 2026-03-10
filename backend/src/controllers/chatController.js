@@ -44,7 +44,7 @@ export async function handleChat(req, res) {
       .map(h => ({ user_prompt: h.user_prompt, ai_response: h.ai_response })) || [];
 
     // 4️⃣ Generate Hugging Face LLM response
-    const llmResponse = await getHFResponse({
+    const llmResponse = await getLLMResponse({
       systemPrompt: SYSTEM_PROMPT,
       userPrompt,
       contextChunks,
