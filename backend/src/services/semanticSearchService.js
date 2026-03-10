@@ -8,7 +8,7 @@ import { supabase } from "../config/supabaseClient.js";
  */
 export async function getTopChunks(queryEmbedding, topN = 10) {
   const { data, error } = await supabase
-    .rpc("match_pdf_chunks_v2", {
+    .rpc("match_pdf_chunks", {
       query_embedding: queryEmbedding,
       match_count: topN
     });
