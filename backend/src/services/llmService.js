@@ -61,7 +61,7 @@ ${userPrompt}
       body: JSON.stringify({
         model: "meta-llama/Llama-3.1-8B-Instruct",
         messages: messages,
-        max_tokens: 350,
+        max_tokens: 550,
         temperature: 0.4
       })
     });
