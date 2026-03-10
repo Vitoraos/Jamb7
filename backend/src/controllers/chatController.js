@@ -11,9 +11,8 @@ export async function handleChat(req, res) {
   try {
     const { userPrompt, keywords, userId = 1 } = req.body; // Default userId
 
-    /// 1️⃣ Get embedding for keywords from Hugging Face Router API
-const embeddingRes = await fetch(
-  "https://router.huggingface.co/v1/embeddings",
+    const embeddingRes = await fetch(
+  `https://api-inference.huggingface.co/v2/embeddings/sentence-transformers/all-MiniLM-L6-v2`,
   {
     method: "POST",
     headers: {
@@ -21,20 +20,23 @@ const embeddingRes = await fetch(
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
-      model: "sentence-transformers/all-MiniLM-L6-v2",
-      input: [keywords]   // wrap keywords in an array
+      input: [keywords]
     })
   }
 );
 
-// Parse response safely
-const embeddingData = await embeddingRes.json();
+// Check response first
+if (!embeddingRes.ok) {
+  const text = await embeddingRes.text(); // Read as plain text
+  console.error("Embedding request failed:", embeddingRes.status, text);
+  return res.status(500).json({ error: "Embedding request failed" });
+}
 
-// Hugging Face Router returns embeddings like: { "data": [ { "embedding": [...] } ] }
+const embeddingData = await embeddingRes.json();
 const queryEmbedding = embeddingData?.data?.[0]?.embedding;
 
 if (!queryEmbedding) {
-  console.error("Failed to get embedding from Hugging Face:", embeddingData);
+  console.error("Failed to get embedding:", embeddingData);
   return res.status(500).json({ error: "Embedding generation failed" });
 }
     // 2️⃣ Get top chunks from Supabase semantic search
