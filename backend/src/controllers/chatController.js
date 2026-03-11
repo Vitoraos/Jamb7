@@ -14,7 +14,7 @@ export async function handleChat(req, res) {
     const { userPrompt, keywords, userId = 1 } = req.body; // Default userId
 
     // 1️⃣ Initialize Hugging Face SDK
-    const hf = new HfInference(process.env.HF_TOKEN);
+    const hf = new HfInference(process.env.LLM_API_KEY);
 
     // 2️⃣ Generate embedding for keywords
     const embeddingRes = await hf.featureExtraction({
