@@ -4,7 +4,7 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-// Initialize Hugging Face SDK
+// Initialize Hugging Face SDK with your Router API key
 const hf = new HfInference(process.env.LLM_API_KEY);
 
 /**
@@ -43,22 +43,23 @@ Question:
 ${userPrompt}
 `;
 
+    // 4️⃣ Combine system prompt, history, and current message
     const messages = [
       { role: "system", content: systemPrompt },
       ...historyMessages,
       { role: "user", content: userMessage }
     ];
 
-    // 4️⃣ Call Hugging Face chatCompletion via SDK
+    // 5️⃣ Call Hugging Face chatCompletion via SDK (Router API compatible)
     const res = await hf.chatCompletion({
       model: "meta-llama/Llama-3.1-8B-Instruct",
-      inputs: messages,
+      messages,             // Correct field for Router chat API
       max_tokens: 550,
       temperature: 0.4
     });
 
-    // 5️⃣ Return generated text
-    return res?.generated_text || "";
+    // 6️⃣ Return generated text (Router API format)
+    return res?.choices?.[0]?.message?.content || "";
 
   } catch (err) {
     console.error("Error generating LLM response:", err);
