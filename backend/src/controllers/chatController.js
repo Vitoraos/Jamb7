@@ -3,10 +3,9 @@ import { getTopChunks } from "../services/semanticSearchService.js";
 import { getLLMResponse } from "../services/llmService.js";
 import { formatChunkForContext } from "../utils/formatters.js";
 import { SYSTEM_PROMPT } from "../config/systemPrompt.js";
-import { InferenceClient } from "@huggingface/inference";
-
+import InferenceClient from "@huggingface/inference";
 // Create Hugging Face client
-const hf = new InferenceClient(process.env.HF_TOKEN);
+const client = new InferenceClient({ apiKey: process.env.HF_TOKEN });
 
 /**
  * Handle chat requests from frontend
