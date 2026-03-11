@@ -3,58 +3,52 @@ import { getTopChunks } from "../services/semanticSearchService.js";
 import { getLLMResponse } from "../services/llmService.js";
 import { formatChunkForContext } from "../utils/formatters.js";
 import { SYSTEM_PROMPT } from "../config/systemPrompt.js";
+import { InferenceClient } from "@huggingface/inference";
+
+// Create Hugging Face client
+const hf = new InferenceClient(process.env.HF_TOKEN);
 
 /**
  * Handle chat requests from frontend
  */
 export async function handleChat(req, res) {
   try {
-    const { userPrompt, keywords, userId = 1 } = req.body; // Default userId
 
-    const embeddingRes = await fetch(
-  `https://router.huggingface.co/v2/embeddings/sentence-transformers/all-MiniLM-L6-v2`,
-  {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${process.env.HF_TOKEN}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      input: [keywords]
-    })
-  }
-);
+    const { userPrompt, keywords, userId = 1 } = req.body;
 
-// Check response first
-if (!embeddingRes.ok) {
-  const text = await embeddingRes.text(); // Read as plain text
-  console.error("Embedding request failed:", embeddingRes.status, text);
-  return res.status(500).json({ error: "Embedding request failed" });
-}
+    // 1️⃣ Generate embedding for keywords
+    const queryEmbedding = await hf.featureExtraction({
+      model: "sentence-transformers/all-MiniLM-L6-v2",
+      inputs: keywords
+    });
 
-const embeddingData = await embeddingRes.json();
-const queryEmbedding = embeddingData?.data?.[0]?.embedding;
+    if (!queryEmbedding) {
+      console.error("Embedding generation failed");
+      return res.status(500).json({ error: "Embedding generation failed" });
+    }
 
-if (!queryEmbedding) {
-  console.error("Failed to get embedding:", embeddingData);
-  return res.status(500).json({ error: "Embedding generation failed" });
-}
-    // 2️⃣ Get top chunks from Supabase semantic search
+    // 2️⃣ Retrieve top similar chunks from Supabase
     const topChunks = await getTopChunks(queryEmbedding, 10);
     const contextChunks = topChunks.map(formatChunkForContext);
 
-    // 3️⃣ Load previous conversation history (last 6 messages)
-    const { data: history } = await supabase
+    // 3️⃣ Load recent chat history
+    const { data: history, error: historyError } = await supabase
       .from("chat_history")
       .select("user_prompt, ai_response")
       .order("created_at", { ascending: false })
       .limit(6);
 
-    const chatHistory = history
-      ?.reverse()
-      .map(h => ({ user_prompt: h.user_prompt, ai_response: h.ai_response })) || [];
+    if (historyError) {
+      console.error("Error loading chat history:", historyError);
+    }
 
-    // 4️⃣ Generate Hugging Face LLM response
+    const chatHistory =
+      history?.reverse().map(h => ({
+        user_prompt: h.user_prompt,
+        ai_response: h.ai_response
+      })) || [];
+
+    // 4️⃣ Generate LLM response
     const llmResponse = await getLLMResponse({
       systemPrompt: SYSTEM_PROMPT,
       userPrompt,
@@ -62,22 +56,32 @@ if (!queryEmbedding) {
       chatHistory
     });
 
-    // 5️⃣ Save chat to history
-    const { error } = await supabase
+    // 5️⃣ Save chat history
+    const { error: saveError } = await supabase
       .from("chat_history")
-      .insert([{
-        user_id: userId,
-        user_prompt: userPrompt,
-        keywords,
-        ai_response: llmResponse
-      }]);
+      .insert([
+        {
+          user_id: userId,
+          user_prompt: userPrompt,
+          keywords,
+          ai_response: llmResponse
+        }
+      ]);
 
-    if (error) console.error("Error saving chat history:", error);
+    if (saveError) {
+      console.error("Error saving chat history:", saveError);
+    }
 
-    // 6️⃣ Respond to frontend
-    res.json({ aiResponse: llmResponse, contextChunks });
+    // 6️⃣ Send response to frontend
+    res.json({
+      aiResponse: llmResponse,
+      contextChunks
+    });
+
   } catch (err) {
+
     console.error("handleChat error:", err);
     res.status(500).json({ error: "Internal Server Error" });
+
   }
 }
