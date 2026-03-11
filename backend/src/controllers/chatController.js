@@ -38,7 +38,7 @@ export async function handleChat(req, res) {
       .from("chat_history")
       .select("user_prompt, ai_response")
       .order("created_at", { ascending: false })
-      .limit(4);
+      .limit(6);
 
     const chatHistory = history
       ?.reverse()
