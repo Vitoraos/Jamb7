@@ -5,7 +5,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 // Initialize Hugging Face SDK
-const hf = new HfInference(process.env.HF_TOKEN);
+const hf = new HfInference(process.env.LLM_API_KEY);
 
 /**
  * Generates a response from Hugging Face chat models via router
