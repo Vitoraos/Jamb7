@@ -34,14 +34,10 @@ export async function getLLMResponse({
       { role: "assistant", content: h.ai_response }
     ]);
 
-    // 3️⃣ Construct the user message including context
-    const userMessage = `
-Context Chunks:
-${sortedChunks.join("\n\n")}
-
-Question:
-${userPrompt}
-`;
+    // 3️⃣ Construct the user message including context only if available
+    const userMessage = sortedChunks.length
+      ? `Context Chunks:\n${sortedChunks.join("\n\n")}\n\nQuestion:\n${userPrompt}`
+      : userPrompt; // fallback: just the user question
 
     // 4️⃣ Combine system prompt, history, and current message
     const messages = [
@@ -53,7 +49,7 @@ ${userPrompt}
     // 5️⃣ Call Hugging Face chatCompletion via SDK (Router API compatible)
     const res = await hf.chatCompletion({
       model: "meta-llama/Llama-3.1-8B-Instruct",
-      messages,             // Correct field for Router chat API
+      messages,
       max_tokens: 550,
       temperature: 0.4
     });
