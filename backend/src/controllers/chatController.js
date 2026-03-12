@@ -2,6 +2,7 @@
 
 import { supabase } from "../config/supabaseClient.js";
 import { getLLMResponse } from "../services/llmService.js";
+import { getTopChunks } from "../services/semanticSearchService.js";
 import { formatChunkForContext } from "../utils/formatters.js";
 import { SYSTEM_PROMPT } from "../config/systemPrompt.js";
 import { HfInference } from "@huggingface/inference";
@@ -10,6 +11,7 @@ export async function handleChat(req, res) {
   try {
     const { userPrompt, keywords, userId = 1 } = req.body;
 
+    // 1️⃣ Validate inputs
     if (!userPrompt) {
       return res.status(400).json({ error: "userPrompt is required" });
     }
@@ -18,15 +20,13 @@ export async function handleChat(req, res) {
       return res.status(400).json({ error: "keywords must be a non-empty array" });
     }
 
-    // Initialize HF client
+    // 2️⃣ Initialize Hugging Face client
     const hf = new HfInference(process.env.LLM_API_KEY);
 
-    // Combine keywords into one string for embedding
+    // 3️⃣ Generate embedding for keywords
     const keywordString = keywords.join(", ");
-
     console.log("Keywords used for semantic search:", keywordString);
 
-    // Generate embedding
     const embeddingRes = await hf.featureExtraction({
       model: "sentence-transformers/all-MiniLM-L6-v2",
       inputs: keywordString
@@ -37,32 +37,14 @@ export async function handleChat(req, res) {
       return res.status(500).json({ error: "Embedding generation failed" });
     }
 
-    const queryEmbedding = embeddingRes[0];
+    const queryEmbedding = embeddingRes[0]; // Array of floats
 
-    // Convert to Postgres vector format
-    const vectorLiteral = `[${queryEmbedding.join(",")}]`;
-
-    console.log("Vector generated for search");
-
-    // Call Supabase vector search
-    const { data: topChunks, error: searchError } = await supabase.rpc(
-      "match_pdf_chunks",
-      {
-        query_embedding: vectorLiteral,
-        match_count: 10
-      }
-    );
-
-    if (searchError) {
-      console.error("Semantic search error:", searchError);
-      return res.status(500).json({ error: "Semantic search failed" });
-    }
-
-    console.log("Chunks retrieved:", topChunks?.length || 0);
-
+    // 4️⃣ Retrieve top semantic chunks
+    const topChunks = await getTopChunks(queryEmbedding, 10);
     const contextChunks = (topChunks || []).map(formatChunkForContext);
+    console.log("Chunks retrieved:", contextChunks.length);
 
-    // Load previous chat history
+    // 5️⃣ Load previous conversation history (last 6 messages)
     const { data: history } = await supabase
       .from("chat_history")
       .select("user_prompt, ai_response")
@@ -75,7 +57,7 @@ export async function handleChat(req, res) {
         ai_response: h.ai_response
       })) || [];
 
-    // Call LLM
+    // 6️⃣ Generate LLM response
     const llmResponse = await getLLMResponse({
       systemPrompt: SYSTEM_PROMPT,
       userPrompt,
@@ -83,7 +65,7 @@ export async function handleChat(req, res) {
       chatHistory
     });
 
-    // Save conversation
+    // 7️⃣ Save conversation
     const { error: saveError } = await supabase.from("chat_history").insert([
       {
         user_id: userId,
@@ -97,6 +79,7 @@ export async function handleChat(req, res) {
       console.error("Chat history save error:", saveError);
     }
 
+    // 8️⃣ Return response to frontend
     res.json({
       aiResponse: llmResponse,
       contextChunks
