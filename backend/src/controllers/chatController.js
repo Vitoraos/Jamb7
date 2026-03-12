@@ -1,47 +1,66 @@
+// backend/src/controllers/chatController.js
+
 import { supabase } from "../config/supabaseClient.js";
-import { getTopChunks } from "../services/semanticSearchService.js";
 import { getLLMResponse } from "../services/llmService.js";
 import { formatChunkForContext } from "../utils/formatters.js";
 import { SYSTEM_PROMPT } from "../config/systemPrompt.js";
 import { HfInference } from "@huggingface/inference";
 
-/**
- * Handle chat requests from frontend
- */
 export async function handleChat(req, res) {
   try {
     const { userPrompt, keywords, userId = 1 } = req.body;
 
-    // Require keywords for semantic search
-    if (!keywords || keywords.trim() === "") {
-      return res.status(400).json({
-        error: "keywords are required for semantic search"
-      });
+    if (!userPrompt) {
+      return res.status(400).json({ error: "userPrompt is required" });
     }
 
-    // Initialize Hugging Face SDK
+    if (!Array.isArray(keywords) || keywords.length === 0) {
+      return res.status(400).json({ error: "keywords must be a non-empty array" });
+    }
+
+    // Initialize HF client
     const hf = new HfInference(process.env.LLM_API_KEY);
 
-    console.log("Semantic search keywords:", keywords);
+    // Combine keywords into one string for embedding
+    const keywordString = keywords.join(", ");
 
-    // Generate embedding ONLY from keywords
+    console.log("Keywords used for semantic search:", keywordString);
+
+    // Generate embedding
     const embeddingRes = await hf.featureExtraction({
       model: "sentence-transformers/all-MiniLM-L6-v2",
-      inputs: keywords
+      inputs: keywordString
     });
 
     if (!embeddingRes || !embeddingRes[0]) {
       console.error("Embedding generation failed:", embeddingRes);
-      return res.status(500).json({
-        error: "Embedding generation failed"
-      });
+      return res.status(500).json({ error: "Embedding generation failed" });
     }
 
     const queryEmbedding = embeddingRes[0];
 
-    // Run semantic search
-    const topChunks = await getTopChunks(queryEmbedding, 10);
-    const contextChunks = topChunks.map(formatChunkForContext);
+    // Convert to Postgres vector format
+    const vectorLiteral = `[${queryEmbedding.join(",")}]`;
+
+    console.log("Vector generated for search");
+
+    // Call Supabase vector search
+    const { data: topChunks, error: searchError } = await supabase.rpc(
+      "match_pdf_chunks",
+      {
+        query_embedding: vectorLiteral,
+        match_count: 10
+      }
+    );
+
+    if (searchError) {
+      console.error("Semantic search error:", searchError);
+      return res.status(500).json({ error: "Semantic search failed" });
+    }
+
+    console.log("Chunks retrieved:", topChunks?.length || 0);
+
+    const contextChunks = (topChunks || []).map(formatChunkForContext);
 
     // Load previous chat history
     const { data: history } = await supabase
@@ -56,7 +75,7 @@ export async function handleChat(req, res) {
         ai_response: h.ai_response
       })) || [];
 
-    // Generate LLM response
+    // Call LLM
     const llmResponse = await getLLMResponse({
       systemPrompt: SYSTEM_PROMPT,
       userPrompt,
@@ -64,26 +83,24 @@ export async function handleChat(req, res) {
       chatHistory
     });
 
-    // Save chat history
-    const { error } = await supabase
-      .from("chat_history")
-      .insert([
-        {
-          user_id: userId,
-          user_prompt: userPrompt,
-          keywords,
-          ai_response: llmResponse
-        }
-      ]);
+    // Save conversation
+    const { error: saveError } = await supabase.from("chat_history").insert([
+      {
+        user_id: userId,
+        user_prompt: userPrompt,
+        keywords,
+        ai_response: llmResponse
+      }
+    ]);
 
-    if (error) console.error("Error saving chat history:", error);
+    if (saveError) {
+      console.error("Chat history save error:", saveError);
+    }
 
-    // Send response
     res.json({
       aiResponse: llmResponse,
       contextChunks
     });
-
   } catch (err) {
     console.error("handleChat error:", err);
     res.status(500).json({ error: "Internal Server Error" });
