@@ -15,7 +15,6 @@ export async function handleChat(req, res) {
     if (!userPrompt) {
       return res.status(400).json({ error: "userPrompt is required" });
     }
-
     if (!Array.isArray(keywords) || keywords.length === 0) {
       return res.status(400).json({ error: "keywords must be a non-empty array" });
     }
@@ -37,14 +36,25 @@ export async function handleChat(req, res) {
       return res.status(500).json({ error: "Embedding generation failed" });
     }
 
-    const queryEmbedding = embeddingRes[0]; // Array of floats
+    // ❌ Fix: flatten in case HF returns 2D array
+    const queryEmbedding = Array.isArray(embeddingRes[0][0])
+      ? embeddingRes[0][0]
+      : embeddingRes[0];
 
-    // 4️⃣ Retrieve top semantic chunks
+    // 4️⃣ Retrieve top semantic chunks (RPC expects vector literal)
     const topChunks = await getTopChunks(queryEmbedding, 10);
-    const contextChunks = (topChunks || []).map(formatChunkForContext);
+
+    // 5️⃣ Format chunks safely (handle missing fields)
+    const contextChunks = (topChunks || []).map(chunk => ({
+      subject: chunk.subject || "N/A",
+      question_id: chunk.question_id || chunk.id || "N/A",
+      chunk_text: chunk.chunk_text || "",
+      similarity: chunk.similarity ?? 0
+    })).map(formatChunkForContext);
+
     console.log("Chunks retrieved:", contextChunks.length);
 
-    // 5️⃣ Load previous conversation history (last 6 messages)
+    // 6️⃣ Load previous conversation history (last 6 messages)
     const { data: history } = await supabase
       .from("chat_history")
       .select("user_prompt, ai_response")
@@ -57,7 +67,7 @@ export async function handleChat(req, res) {
         ai_response: h.ai_response
       })) || [];
 
-    // 6️⃣ Generate LLM response
+    // 7️⃣ Generate LLM response
     const llmResponse = await getLLMResponse({
       systemPrompt: SYSTEM_PROMPT,
       userPrompt,
@@ -65,7 +75,7 @@ export async function handleChat(req, res) {
       chatHistory
     });
 
-    // 7️⃣ Save conversation
+    // 8️⃣ Save conversation
     const { error: saveError } = await supabase.from("chat_history").insert([
       {
         user_id: userId,
@@ -75,15 +85,14 @@ export async function handleChat(req, res) {
       }
     ]);
 
-    if (saveError) {
-      console.error("Chat history save error:", saveError);
-    }
+    if (saveError) console.error("Chat history save error:", saveError);
 
-    // 8️⃣ Return response to frontend
+    // 9️⃣ Return response to frontend
     res.json({
       aiResponse: llmResponse,
       contextChunks
     });
+
   } catch (err) {
     console.error("handleChat error:", err);
     res.status(500).json({ error: "Internal Server Error" });
