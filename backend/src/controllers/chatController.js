@@ -36,12 +36,11 @@ export async function handleChat(req, res) {
       return res.status(500).json({ error: "Embedding generation failed" });
     }
 
-    // ❌ Fix: flatten in case HF returns 2D array
-    const queryEmbedding = Array.isArray(embeddingRes[0][0])
-      ? embeddingRes[0][0]
-      : embeddingRes[0];
+    // ❌ Fix: flatten embedding safely to 1D array
+    const queryEmbedding = embeddingRes.flat(2);
+    console.log("Query embedding length:", queryEmbedding.length);
 
-    // 4️⃣ Retrieve top semantic chunks (RPC expects vector literal)
+    // 4️⃣ Retrieve top semantic chunks
     const topChunks = await getTopChunks(queryEmbedding, 10);
 
     // 5️⃣ Format chunks safely (handle missing fields)
