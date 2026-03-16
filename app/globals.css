@@ -1,0 +1,135 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 20% 4%;
+    --foreground: 220 10% 90%;
+    --card: 220 18% 7%;
+    --card-foreground: 220 10% 90%;
+    --popover: 220 18% 7%;
+    --popover-foreground: 220 10% 90%;
+    --primary: 170 100% 50%;
+    --primary-foreground: 220 20% 4%;
+    --secondary: 220 15% 12%;
+    --secondary-foreground: 220 10% 80%;
+    --muted: 220 15% 15%;
+    --muted-foreground: 220 10% 55%;
+    --accent: 170 80% 45%;
+    --accent-foreground: 220 20% 4%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 15% 18%;
+    --input: 220 15% 12%;
+    --ring: 170 100% 50%;
+    --radius: 0.75rem;
+    --console-glow: 170 100% 50%;
+    --console-amber: 45 100% 50%;
+    --console-red: 0 85% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+/* Console glow effects */
+.console-border {
+  @apply border border-border relative;
+  box-shadow: 
+    inset 0 1px 0 0 hsl(var(--border)),
+    0 0 20px -5px hsl(var(--console-glow) / 0.15);
+}
+
+.console-glow {
+  box-shadow: 0 0 30px -10px hsl(var(--primary) / 0.4);
+}
+
+.console-panel {
+  @apply bg-card rounded-lg console-border;
+  background: linear-gradient(
+    180deg,
+    hsl(220 18% 8%) 0%,
+    hsl(220 18% 6%) 100%
+  );
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--secondary));
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
+
+/* Loading pulse animation */
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 0.4;
+    box-shadow: 0 0 10px hsl(var(--primary) / 0.3);
+  }
+  50% {
+    opacity: 1;
+    box-shadow: 0 0 20px hsl(var(--primary) / 0.6);
+  }
+}
+
+.loading-pulse {
+  animation: pulse-glow 1.5s ease-in-out infinite;
+}
+
+/* Typing indicator */
+@keyframes typing-dot {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+.typing-dot:nth-child(1) { animation: typing-dot 1.2s infinite 0s; }
+.typing-dot:nth-child(2) { animation: typing-dot 1.2s infinite 0.2s; }
+.typing-dot:nth-child(3) { animation: typing-dot 1.2s infinite 0.4s; }
+
+/* Code block styling for markdown */
+.prose pre {
+  @apply bg-secondary rounded-lg p-4 overflow-x-auto;
+}
+
+.prose code {
+  @apply bg-secondary px-1.5 py-0.5 rounded text-sm font-mono text-primary;
+}
+
+.prose pre code {
+  @apply bg-transparent p-0;
+}
+
+/* Grid pattern background */
+.grid-pattern {
+  background-image: 
+    linear-gradient(hsl(var(--border) / 0.3) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(var(--border) / 0.3) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
