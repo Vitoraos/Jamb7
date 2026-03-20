@@ -18,20 +18,21 @@ export async function handleChat(req, res) {
       return res.status(400).json({ error: "keywords must be a non-empty array" });
     }
 
-    const queryText = `${userPrompt} ${keywords.join(" ")}`.trim();
-    console.log("Query text for embedding:", queryText);
+    // Only keywords are embedded — userPrompt goes to LLM untouched
+    const keywordString = keywords.join(" ");
+    console.log("Keywords for embedding:", keywordString);
     console.log("Subject filter:", subject ?? "none");
 
-    const queryEmbedding = await getEmbedding(queryText);
+    const queryEmbedding = await getEmbedding(keywordString);
 
     if (!queryEmbedding || queryEmbedding.length === 0) {
       return res.status(500).json({ error: "Embedding generation failed" });
     }
 
-    console.log("Query embedding length:", queryEmbedding.length);
+    console.log("Embedding length:", queryEmbedding.length);
 
     const [topChunksResult, historyResult] = await Promise.all([
-      getTopChunks(queryEmbedding, 6, subject),
+      getTopChunks(queryEmbedding, 10, subject),
       supabase
         .from("chat_history")
         .select("user_prompt, ai_response")
@@ -42,10 +43,10 @@ export async function handleChat(req, res) {
 
     const contextChunks = (topChunksResult || [])
       .map(chunk => ({
-        subject: chunk.subject || "N/A",
         question_id: chunk.question_id || chunk.id || "N/A",
-        chunk_text: chunk.chunk_text || "",
-        similarity: chunk.similarity ?? 0
+        subject:     chunk.subject     || "N/A",
+        chunk_text:  chunk.chunk_text  || "",
+        similarity:  chunk.similarity  ?? 0
       }))
       .map(formatChunkForContext);
 
@@ -66,7 +67,12 @@ export async function handleChat(req, res) {
 
     supabase
       .from("chat_history")
-      .insert([{ user_id: userId, user_prompt: userPrompt, keywords, ai_response: llmResponse }])
+      .insert([{
+        user_id:     userId,
+        user_prompt: userPrompt,
+        keywords:    keywords,
+        ai_response: llmResponse
+      }])
       .then(({ error }) => {
         if (error) console.error("Chat history save error:", error);
       });
