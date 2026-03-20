@@ -5,21 +5,10 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-// Singleton client
 const hf = new HfInference(process.env.LLM_API_KEY);
 
 const MAX_CHUNK_CHARS = 400;
-const MIN_SIMILARITY_THRESHOLD = 0.3;
 
-/**
- * Generates a response from the LLM using semantic context + conversation history.
- * @param {Object} params
- * @param {string} params.systemPrompt
- * @param {string} params.userPrompt
- * @param {Array}  params.contextChunks
- * @param {Array}  params.chatHistory
- * @returns {Promise<string>}
- */
 export async function getLLMResponse({
   systemPrompt,
   userPrompt,
@@ -27,18 +16,17 @@ export async function getLLMResponse({
   chatHistory = []
 }) {
   try {
-    const relevantChunks = contextChunks
-      .filter(c => (c.similarity || 0) >= MIN_SIMILARITY_THRESHOLD)
-      .sort((a, b) => (b.similarity || 0) - (a.similarity || 0))
-      .slice(0, 6);
-
-    const contextString = relevantChunks.length
-      ? relevantChunks
+    // All 10 retrieved chunks become the reference block
+    // question_id included so LLM can cite e.g. "Based on Physics 2018:Q24"
+    const referenceBlock = contextChunks.length
+      ? contextChunks
           .map((c, i) => {
-            const text = c.chunk_text?.slice(0, MAX_CHUNK_CHARS) || "";
+            const text  = c.chunk_text?.slice(0, MAX_CHUNK_CHARS) || "";
             const score = c.similarity?.toFixed(2) || "0.00";
-            return `[${i + 1}] (score: ${score})
-${text}`;
+            const qid   = c.question_id ? `[${c.question_id}]
+` : "";
+            return `[Reference ${i + 1}] (similarity: ${score})
+${qid}${text}`;
           })
           .join("
 
@@ -48,22 +36,26 @@ ${text}`;
       : null;
 
     const historyMessages = chatHistory.slice(-6).flatMap(h => [
-      { role: "user", content: h.user_prompt },
+      { role: "user",      content: h.user_prompt },
       { role: "assistant", content: h.ai_response }
     ]);
 
-    const userMessage = contextString
-      ? `Relevant past questions:
-${contextString}
+    // Reference chunks sit on top — userPrompt sits at the bottom untouched
+    const userMessage = referenceBlock
+      ? `The following are relevant past JAMB questions retrieved for reference:
+
+${referenceBlock}
+
+---
 
 Student question:
 ${userPrompt}`
       : userPrompt;
 
     const messages = [
-      { role: "system", content: systemPrompt },
+      { role: "system",    content: systemPrompt },
       ...historyMessages,
-      { role: "user", content: userMessage }
+      { role: "user",      content: userMessage }
     ];
 
     const res = await hf.chatCompletion({
@@ -78,6 +70,6 @@ ${userPrompt}`
 
   } catch (err) {
     console.error("LLM error:", err?.message || err);
-    return "Sorry, I couldn't generate a response. Please try again.";
+    return "Sorry, I could not generate a response. Please try again.";
   }
 }
