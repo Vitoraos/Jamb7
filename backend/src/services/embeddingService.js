@@ -1,22 +1,19 @@
 // backend/src/services/embeddingService.js
-// Uses BAAI/bge-m3 — significantly better retrieval than MiniLM
-// Singleton HfInference client — initialised once, reused across requests
 
 import { HfInference } from "@huggingface/inference";
 import dotenv from "dotenv";
 
 dotenv.config();
 
-// Singleton: only one instance per server process
 const hf = new HfInference(process.env.LLM_API_KEY);
 
 const EMBEDDING_MODEL = "BAAI/bge-m3";
 
 /**
- * Generate a 1D embedding array for a given text string.
- * BGE-M3 returns 1024-dimensional vectors.
- * @param {string} text
- * @returns {Promise<number[]>}
+ * Converts a keyword string into a 1024-dim BGE-M3 embedding vector.
+ * Input MUST be a plain string — chatController joins the keywords array before calling this.
+ * @param {string} text - e.g. "thermodynamics heat entropy Boyle law"
+ * @returns {Promise<number[]>} - float array of length 1024
  */
 export async function getEmbedding(text) {
   try {
@@ -30,7 +27,7 @@ export async function getEmbedding(text) {
     const flat = Array.isArray(result[0]) ? result.flat(2) : Array.from(result);
 
     if (!flat || flat.length === 0) {
-      throw new Error("Empty embedding returned");
+      throw new Error("Empty embedding returned from model");
     }
 
     return flat;
