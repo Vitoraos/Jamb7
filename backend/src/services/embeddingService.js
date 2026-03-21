@@ -1,35 +1,34 @@
 // backend/src/services/embeddingService.js
-
-import { HfInference } from "@huggingface/inference";
 import dotenv from "dotenv";
-
 dotenv.config();
 
-const hf = new HfInference(process.env.LLM_API_KEY);
-
 const EMBEDDING_MODEL = "BAAI/bge-m3";
+const PREFIX = "Represent this sentence for searching relevant passages: ";
+const HF_API_KEY = process.env.LLM_API_KEY;
 
-/**
- * Converts a keyword string into a 1024-dim BGE-M3 embedding vector.
- * Input MUST be a plain string — chatController joins the keywords array before calling this.
- * @param {string} text - e.g. "thermodynamics heat entropy Boyle law"
- * @returns {Promise<number[]>} - float array of length 1024
- */
 export async function getEmbedding(text) {
   try {
-    const prefixedText = `Represent this sentence for searching relevant passages: ${text}`;
-
-    const result = await hf.featureExtraction({
-      model: EMBEDDING_MODEL,
-      inputs: prefixedText
-    });
-
-    const flat = Array.isArray(result[0]) ? result.flat(2) : Array.from(result);
-
-    if (!flat || flat.length === 0) {
-      throw new Error("Empty embedding returned from model");
+    const response = await fetch(
+      `https://router.huggingface.co/hf-inference/models/${EMBEDDING_MODEL}/pipeline/feature-extraction`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${HF_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          inputs: PREFIX + text,
+          parameters: { normalize: true },
+        }),
+      }
+    );
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`HF Embedding API error ${response.status}: ${errText}`);
     }
-
+    const data = await response.json();
+    const flat = Array.isArray(data[0]) ? data.flat(2) : Array.from(data);
+    if (!flat || flat.length === 0) throw new Error("Empty embedding returned");
     return flat;
   } catch (err) {
     console.error("Embedding error:", err);
