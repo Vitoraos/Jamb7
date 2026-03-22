@@ -1,5 +1,4 @@
 // backend/src/controllers/chatController.js
-
 import { supabase } from "../config/supabaseClient.js";
 import { getLLMResponse } from "../services/llmService.js";
 import { getTopChunks } from "../services/semanticSearchService.js";
@@ -18,7 +17,6 @@ export async function handleChat(req, res) {
       return res.status(400).json({ error: "keywords must be a non-empty array" });
     }
 
-    // Only keywords are embedded — userPrompt goes to LLM untouched
     const keywordString = keywords.join(" ");
     console.log("Keywords for embedding:", keywordString);
     console.log("Subject filter:", subject ?? "none");
@@ -62,7 +60,8 @@ export async function handleChat(req, res) {
       systemPrompt: SYSTEM_PROMPT,
       userPrompt,
       contextChunks,
-      chatHistory
+      chatHistory,
+      subject
     });
 
     supabase
