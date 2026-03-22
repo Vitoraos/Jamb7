@@ -1,12 +1,15 @@
 // backend/src/services/llmService.js
 import dotenv from "dotenv";
+import { getModelForSubject } from "../config/modelRouter.js";
 dotenv.config();
 
 const HF_API_KEY = process.env.LLM_API_KEY;
-const LLM_MODEL = "meta-llama/Llama-3.1-8B-Instruct";
 const MAX_CHUNK_CHARS = 400;
 
-export async function getLLMResponse({ systemPrompt, userPrompt, contextChunks = [], chatHistory = [] }) {
+export async function getLLMResponse({ systemPrompt, userPrompt, contextChunks = [], chatHistory = [], subject = null }) {
+  const LLM_MODEL = getModelForSubject(subject);
+  console.log(`LLM model selected for subject "${subject}": ${LLM_MODEL}`);
+
   try {
     const referenceBlock = contextChunks.length
       ? contextChunks.map((c, i) => {
@@ -33,22 +36,22 @@ export async function getLLMResponse({ systemPrompt, userPrompt, contextChunks =
     ];
 
     const response = await fetch(
-  "https://router.huggingface.co/v1/chat/completions",  // ← Correct unified endpoint
-  {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${HF_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: LLM_MODEL,  // ← Model stays here in the body
-      messages,
-      max_tokens: 800,
-      temperature: 0.4,
-      top_p: 0.9,
-    }),
-  }
-);
+      "https://router.huggingface.co/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${HF_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: LLM_MODEL,
+          messages,
+          max_tokens: 800,
+          temperature: 0.4,
+          top_p: 0.9,
+        }),
+      }
+    );
 
     if (!response.ok) {
       const errText = await response.text();
