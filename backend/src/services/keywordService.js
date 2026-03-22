@@ -1,11 +1,14 @@
 // backend/src/services/keywordService.js
 import dotenv from "dotenv";
+import { getModelForSubject } from "../config/modelRouter.js";
 dotenv.config();
 
 const HF_API_KEY = process.env.LLM_API_KEY;
-const LLM_MODEL = "meta-llama/Llama-3.1-8B-Instruct";
 
 export async function extractKeywords(userPrompt, subject) {
+  const LLM_MODEL = getModelForSubject(subject);
+  console.log(`Keyword model selected for subject "${subject}": ${LLM_MODEL}`);
+
   try {
     const messages = [
       {
@@ -22,30 +25,27 @@ Rules:
       },
       {
         role: "user",
-        content: `Student question: "${userPrompt}"
-Subject: ${subject}
-
-Return the JAMB ${subject} keywords as a JSON array only.`
+        content: `Student question: "${userPrompt}"\nSubject: ${subject}\n\nReturn the JAMB ${subject} keywords as a JSON array only.`
       }
     ];
 
     const response = await fetch(
-  "https://router.huggingface.co/v1/chat/completions",  // ← Correct unified endpoint
-  {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${HF_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: LLM_MODEL,  // ← Model stays here in the body
-      messages,
-      max_tokens: 100,
-      temperature: 0.1,
-      top_p: 0.9,
-    }),
-  }
-);
+      "https://router.huggingface.co/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${HF_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: LLM_MODEL,
+          messages,
+          max_tokens: 100,
+          temperature: 0.1,
+          top_p: 0.9,
+        }),
+      }
+    );
 
     if (!response.ok) {
       const errText = await response.text();
