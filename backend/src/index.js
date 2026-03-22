@@ -7,23 +7,7 @@ dotenv.config();
 
 const app = express();
 
-const ALLOWED_ORIGINS = [
-  "https://edu-peak-edi2.vercel.app/",
-  "https://Edupeak-git-main-edu-peak-edi2.vercel.app",
-  "http://localhost:3000"
-];
-
-app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin || ALLOWED_ORIGINS.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
-    }
-  },
-  methods: ["POST", "OPTIONS"],
-  allowedHeaders: ["Content-Type"]
-}));
+app.use(cors()); // allow all origins
 
 app.use(express.json({ limit: "10kb" }));
 
