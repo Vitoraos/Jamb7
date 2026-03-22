@@ -33,22 +33,22 @@ export async function getLLMResponse({ systemPrompt, userPrompt, contextChunks =
     ];
 
     const response = await fetch(
-      `https://router.huggingface.co/hf-inference/models/${LLM_MODEL}/v1/chat/completions`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${HF_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: LLM_MODEL,
-          messages,
-          max_tokens: 700,
-          temperature: 0.35,
-          top_p: 0.9,
-        }),
-      }
-    );
+  "https://router.huggingface.co/v1/chat/completions",  // ← Correct unified endpoint
+  {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${HF_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: LLM_MODEL,  // ← Model stays here in the body
+      messages,
+      max_tokens: 800,
+      temperature: 0.4,
+      top_p: 0.9,
+    }),
+  }
+);
 
     if (!response.ok) {
       const errText = await response.text();
