@@ -10,7 +10,7 @@ if (!process.env.GEMINI_API_KEY) {
 }
 
 const app = express();
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 
 // Enable CORS
 app.use(
