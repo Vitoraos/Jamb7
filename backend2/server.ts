@@ -102,7 +102,10 @@ Provide clear explanations for each answer.`,
     });
 
     // `.text` is a string property, not a function
-    res.json(JSON.parse(response.text));
+    if (!response.text) {
+  throw new Error("AI response missing text");
+}
+res.json(JSON.parse(response.text));
   } catch (error) {
     console.error("Quiz Generation Error:", error);
     res.status(500).json({ error: "Failed to generate quiz" });
