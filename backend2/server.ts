@@ -5,15 +5,20 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-// Ensure GEMINI_API_KEY is defined and type-safe
-const GEMINI_API_KEY: string = process.env.GEMINI_API_KEY!;
-if (!GEMINI_API_KEY) {
-  throw new Error("GEMINI_API_KEY is not set in environment variables");
+// Helper to ensure required environment variables are set
+function requireEnv(name: string): string {
+  const value = process.env[name];
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new Error(`${name} is not set in environment variables`);
+  }
+  return value;
 }
 
-// Initialize Express and Google GenAI client
-const app = express();
+// Get GEMINI_API_KEY safely
+const GEMINI_API_KEY = requireEnv("GEMINI_API_KEY");
 const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+
+const app = express();
 
 // Enable CORS
 app.use(
@@ -26,7 +31,7 @@ app.use(
 
 app.use(express.json({ limit: "50mb" }));
 
-// Type-safe route
+// Type-safe route for quiz generation
 app.post("/api/generate-quiz", async (req: Request, res: Response) => {
   try {
     const { text, images }: { text?: string; images?: string[] } = req.body;
@@ -96,15 +101,16 @@ Provide clear explanations for each answer.`,
       },
     });
 
-    res.json(JSON.parse(response.text)); // .text is a string property
+    // `.text` is a string property, not a function
+    res.json(JSON.parse(response.text));
   } catch (error) {
     console.error("Quiz Generation Error:", error);
     res.status(500).json({ error: "Failed to generate quiz" });
   }
 });
 
-// Safely parse PORT environment variable
-const PORT: number = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+// Safe PORT parsing
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 if (isNaN(PORT)) {
   throw new Error("Invalid PORT environment variable");
 }
