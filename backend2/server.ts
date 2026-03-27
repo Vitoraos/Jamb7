@@ -5,10 +5,13 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+// Ensure GEMINI_API_KEY is defined and type-safe
+const GEMINI_API_KEY: string = process.env.GEMINI_API_KEY!;
 if (!GEMINI_API_KEY) {
   throw new Error("GEMINI_API_KEY is not set in environment variables");
 }
+
+// Initialize Express and Google GenAI client
 const app = express();
 const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
@@ -93,16 +96,15 @@ Provide clear explanations for each answer.`,
       },
     });
 
-    // `.text` is a string property, not a function
-    res.json(JSON.parse(response.text));
+    res.json(JSON.parse(response.text)); // .text is a string property
   } catch (error) {
     console.error("Quiz Generation Error:", error);
     res.status(500).json({ error: "Failed to generate quiz" });
   }
 });
 
-// Convert PORT to number safely
-const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+// Safely parse PORT environment variable
+const PORT: number = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 if (isNaN(PORT)) {
   throw new Error("Invalid PORT environment variable");
 }
