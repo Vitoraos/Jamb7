@@ -6,11 +6,8 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const app = express();
-if (!process.env.GEMINI_API_KEY) {
-  throw new Error("GEMINI_API_KEY must be set");
-}
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 // Enable CORS for your frontend
 app.use(
   cors({
