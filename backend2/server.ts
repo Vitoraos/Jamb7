@@ -5,10 +5,14 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const app = express();
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+if (!process.env.GEMINI_API_KEY) {
+  throw new Error("GEMINI_API_KEY is not set in environment variables");
+}
 
-// Enable CORS for your frontend
+const app = express();
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+// Enable CORS
 app.use(
   cors({
     origin: process.env.FRONTEND_URL || "*",
@@ -89,7 +93,7 @@ Provide clear explanations for each answer.`,
       },
     });
 
-    // Use `.text` property instead of function
+    // `.text` is a string property, not a function
     res.json(JSON.parse(response.text));
   } catch (error) {
     console.error("Quiz Generation Error:", error);
@@ -97,6 +101,10 @@ Provide clear explanations for each answer.`,
   }
 });
 
-// Correctly convert PORT to number
-const PORT = Number(process.env.PORT) || 3000;
+// Convert PORT to number safely
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+if (isNaN(PORT)) {
+  throw new Error("Invalid PORT environment variable");
+}
+
 app.listen(PORT, () => console.log(`Backend running on port ${PORT}`));
