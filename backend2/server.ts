@@ -7,7 +7,7 @@ dotenv.config();
 
 const app = express();
 if (!process.env.GEMINI_API_KEY) {
-  throw new Error("GEMINI_API_KEY is required");
+  throw new Error("GEMINI_API_KEY must be set");
 }
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
